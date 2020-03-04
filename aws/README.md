@@ -36,3 +36,20 @@ Usage:
 ```shell
 ./cloudwatch/create-alarms-ec2.sh -p <profile name>
 ```
+
+#### [Create Alarms for RDS](cloudwatch/create-alarms-rds.sh)
+
+Create CloudWatch Alarms for all running RDS Instances in all regions available
+
+* CPUHigh
+* MemoryUsageHigh
+
+Usage:
+
+```
+./cloudwatch/create-alarms-rds.sh -h
+```
+
+```shell
+./cloudwatch/create-alarms-rds.sh -p <profile name>
+```
