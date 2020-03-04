@@ -6,7 +6,10 @@
 # Requires the AWS CLI and jq and you must setup your ALARMACTION
 
 # Change working directory
-DIR_PATH="$( cd "$( echo "${0%/*}" )"; pwd )"
+DIR_PATH="$(
+    cd "$(echo "${0%/*}")"
+    pwd
+)"
 ROOT_PATH=$(dirname $(dirname ${DIR_PATH}))
 source ${ROOT_PATH}/base.sh
 source ${ROOT_PATH}/aws/aws.sh
@@ -30,7 +33,7 @@ check_command "jq"
 aws_check_config
 
 usage() {
-    echo -e "Usage: $( basename $0 ) [arg...]"
+    echo -e "Usage: $(basename $0) [arg...]"
     echo
     echo -e "Options:"
     echo -e "  -p <profile>             AWS CLI profile name"
@@ -39,109 +42,57 @@ usage() {
     exit 1
 }
 
-OPTS=`getopt -o hp:d --long help -n $( basename $0 ) -- "$@"`
+OPTS=$(getopt -o hp:d --long help -n $(basename $0) -- "$@")
 
 if [ $? != 0 ]; then
-    fail_echo "Failed parsing options." >&2;
+    fail_echo "Failed parsing options." >&2
     usage
-    exit 1;
+    exit 1
 fi
 
 eval set -- "$OPTS"
 
 while true; do
     case "$1" in
-        -h | --help )
-            usage ;;
-        -p )
-            # Check for AWS CLI profile argument passed into the script
-            # http://docs.aws.amazon.com/cli/latest/userguide/cli-chap-getting-started.html#cli-multiple-profiles
-            profile="$2"; shift 2 ;;
-        -d )
-            DEBUGMODE="1"; shift 2 ;;
-        -- )
-            shift; break ;;
-        * )
-            break ;;
+    -h | --help)
+        usage
+        ;;
+    -p)
+        # Check for AWS CLI profile argument passed into the script
+        # http://docs.aws.amazon.com/cli/latest/userguide/cli-chap-getting-started.html#cli-multiple-profiles
+        profile="$2"
+        shift 2
+        ;;
+    -d)
+        DEBUGMODE="1"
+        shift 2
+        ;;
+    --)
+        shift
+        break
+        ;;
+    *)
+        break
+        ;;
     esac
 done
 
-echo "Using $profile profile"
-echo
-
-# Get list of all regions (using EC2)
-function GetRegions() {
-    echo "Begin GetRegions Function"
-    AWSregions=$(aws ec2 describe-regions --output=json --profile $profile 2>&1)
-
-    if [ ! $? -eq 0 ]; then
-        fail "$AWSregions"
-    else
-        ParseRegions=$(echo "$AWSregions" | jq '.Regions | .[] | .RegionName' | cut -d \" -f2 | sort)
-    fi
-    TotalRegions=$(echo "$ParseRegions" | wc -l | rev | cut -d " " -f1 | rev)
-    echo "Regions:"
-    # echo "$AWSregions"
-    HorizontalRule
-    info_echo "$ParseRegions"
-    HorizontalRule
-    echo "TotalRegions: $TotalRegions"
-    echo
-    read -r -p "Region: " Region
-    if [[ -z $Region ]]; then
-        fail "Region must be configured."
-    fi
-    echo
-    GetTopics
-    ListInstances
-    echo
-}
-
-# Get SNS topics
-function GetTopics() {
-    # Verify ALARMACTION is setup with some alert mechanism
-    if [[ -z $ALARMACTION ]]; then
-        SNSTopics=$(aws sns list-topics --profile $profile --region $Region 2>&1)
-        if [ ! $? -eq 0 ]; then
-            fail "$SNSTopics"
-        fi
-        TopicArns=$(echo "$SNSTopics" | jq '.Topics | .[] | .TopicArn' | cut -d \" -f2)
-        if [ ! $? -eq 0 ]; then
-            fail "$TopicArns"
-        fi
-        echo "Specify Action for CloudWatch Alarm"
-        echo "SNS Topics Found:"
-        HorizontalRule
-        info_echo "$TopicArns"
-        HorizontalRule
-        echo
-        read -r -p "ARN: " ALARMACTION
-        if [[ -z $ALARMACTION ]]; then
-            fail "Alarm Action must be configured."
-        fi
-        echo
-    fi
-}
-
 # Get list of all EC2 Instances in one region
 function ListInstances() {
-    echo "Begin ListInstances Function"
-    Instances=$(aws ec2 describe-instances --filters Name=instance-state-name,Values=running --region $Region --output=json --profile $profile 2>&1)
+    echo "Get Ec2 Instances"
+    ParseInstances=$(GetEc2Instances $profile $Region)
     if [ ! $? -eq 0 ]; then
-        fail "$Instances"
+        fail "$ParseInstances"
+    fi
+
+    if [ -z "$ParseInstances" ]; then
+        echo "No Instances found in $Region."
     else
-        # if [[ $DEBUGMODE = "1" ]]; then
-        # echo Instances: "$Instances"
-        # fi
-        ParseInstances=$(echo "$Instances" | jq '.Reservations | .[] | .Instances | .[] | .InstanceId' | cut -d \" -f2)
         echo ParseInstances:
         HorizontalRule
         info_echo "$ParseInstances"
         HorizontalRule
-    fi
-    if [ -z "$ParseInstances" ]; then
-        echo "No Instances found in $Region."
-    else
+
         echo "Setting Alarms for Region: $Region"
         echo
         SetAlarms
@@ -174,9 +125,11 @@ function SetAlarms() {
         fi
         if [ -z "$InstanceNameTag" ]; then
             echo "No InstanceName."
+            echo
         fi
         if [[ $DEBUGMODE = "1" ]]; then
             warn_echo "InstanceNameTag: $InstanceNameTag"
+            echo
         fi
         InstanceName=$(echo "$InstanceNameTag" | jq '.Tags | .[] | .Value' | cut -d \" -f2)
         if [ ! $? -eq 0 ]; then
@@ -184,10 +137,11 @@ function SetAlarms() {
         fi
         if [ -z "$InstanceName" ]; then
             echo "No InstanceName."
+            echo
         fi
-        echo
+
         HorizontalRule
-        echo "Instance Name: $InstanceName"
+        echo "Instance Name: $InstanceName ($InstanceID)"
         read -r -p "Set Alarm? (y/n): " SetAlarmYN
         HorizontalRule
         echo
@@ -227,6 +181,13 @@ function SetAlarms() {
     done
 }
 
-GetRegions
+echo "Using $profile profile"
+echo
+
+SelectRegion
+echo
+SelectSNSTopicArn
+echo
+ListInstances
 
 completed
