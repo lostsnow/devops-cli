@@ -94,3 +94,16 @@ function GetEc2Instances() {
         echo "$Instances" | jq '.Reservations | .[] | .Instances | .[] | .InstanceId' | cut -d \" -f2
     fi
 }
+
+# Get list of all RDS Instances in one region
+function GetRdsInstances() {
+    profile=$1
+    Region=$2
+
+    Instances=$(aws rds describe-db-instances --query 'DBInstances[?DBInstanceStatus==`available`]' --region $Region --output=json --profile $profile 2>&1)
+    if [ ! $? -eq 0 ]; then
+        fail "$Instances"
+    else
+        echo "$Instances" | jq '.[] | .DBInstanceIdentifier' | cut -d \" -f2
+    fi
+}

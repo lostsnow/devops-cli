@@ -43,8 +43,8 @@ usage() {
     echo -e "  -h, --help               Show this help message and exit"
     echo
     echo -e "Alarm types:"
-    echo -e "  StatusCheckFailed"
     echo -e "  CPUHigh"
+    echo -e "  MemoryUsageHigh"
     exit 1
 }
 
@@ -71,7 +71,7 @@ while true; do
         ;;
     -t)
         AlermType=$2
-        if [[ ! "$AlermType" =~ ^(all|CPUHigh|StatusCheckFailed)$ ]]; then
+        if [[ ! "$AlermType" =~ ^(all|CPUHigh|MemoryUsageHigh)$ ]]; then
             fail_echo "AlermType $AlermType invalid"
             usage
         fi
@@ -91,10 +91,10 @@ while true; do
     esac
 done
 
-# Get list of all EC2 Instances in one region
+# Get list of all RDS Instances in one region
 function ListInstances() {
-    echo "Get Ec2 Instances"
-    ParseInstances=$(GetEc2Instances $profile $Region)
+    echo "Get RDS Instances"
+    ParseInstances=$(GetRdsInstances $profile $Region)
     if [ ! $? -eq 0 ]; then
         fail "$ParseInstances"
     fi
@@ -115,25 +115,29 @@ function ListInstances() {
 
 function SetAlarmCPUHigh() {
     # CPUHigh
-    CPUHighThreshold=70
-    ALARM_NAME="AWS/EC2: [$InstanceName] CPUHigh $InstanceID"
-    ALARM_DESC="AWS/EC2: [$InstanceName] CPU usage >$CPUHighThreshold% for 5 minutes"
+    CPUHighThreshold=60
+    ALARM_NAME="AWS/RDS: [$InstanceID] CPUHigh"
+    ALARM_DESC="AWS/RDS: [$InstanceID] CPU usage >$CPUHighThreshold% for 5 minutes"
 
     if [[ $DEBUGMODE = "1" ]]; then
-        warn_echo aws cloudwatch put-metric-alarm --alarm-name \"${ALARM_NAME}\" --alarm-description \"${ALARM_DESC}\" --namespace "AWS/EC2" --dimensions Name=InstanceId,Value=$InstanceID --metric-name "CPUUtilization" --statistic "Average" --comparison-operator "GreaterThanThreshold" --unit "Percent" --period 60 --threshold $CPUHighThreshold --evaluation-periods 5 --alarm-actions \"$ALARMACTION\" --profile $profile --region $Region
+        warn_echo aws cloudwatch put-metric-alarm --alarm-name \"${ALARM_NAME}\" --alarm-description \"${ALARM_DESC}\" --namespace "AWS/RDS" --dimensions Name=DBInstanceIdentifier,Value=$InstanceID --metric-name "CPUUtilization" --statistic "Average" --unit "Percent" --period 60 --threshold $CPUHighThreshold --comparison-operator "GreaterThanThreshold" --evaluation-periods 5 --alarm-actions \"$ALARMACTION\" --profile $profile --region $Region
     fi
-    SetAlarm=$(aws cloudwatch put-metric-alarm --alarm-name "${ALARM_NAME}" --alarm-description "${ALARM_DESC}" --namespace "AWS/EC2" --dimensions Name=InstanceId,Value=$InstanceID --metric-name "CPUUtilization" --statistic "Average" --comparison-operator "GreaterThanThreshold" --unit "Percent" --period 60 --threshold $CPUHighThreshold --evaluation-periods 5 --alarm-actions "$ALARMACTION" --profile $profile --region $Region 2>&1)
+    SetAlarm=$(aws cloudwatch put-metric-alarm --alarm-name "${ALARM_NAME}" --alarm-description "${ALARM_DESC}" --namespace "AWS/RDS" --dimensions Name=DBInstanceIdentifier,Value=$InstanceID --metric-name "CPUUtilization" --statistic "Average" --unit "Percent" --period 60 --threshold $CPUHighThreshold --comparison-operator "GreaterThanThreshold" --evaluation-periods 5 --alarm-actions "$ALARMACTION" --profile $profile --region $Region 2>&1)
     if [ ! $? -eq 0 ]; then
         fail "SetAlarm: $SetAlarm"
     fi
 }
 
-function SetAlarmStatusCheckFailed() {
-    ALARM_NAME="AWS/EC2: [$InstanceName] StatusCheckFailed $InstanceID"
+function SetAlarmMemoryUsageHigh() {
+    # MemoryUsageHigh
+    MemoryThreshold=500000000
+    let MemoryThresholdMB=MemoryThreshold/1000000
+    ALARM_NAME="AWS/RDS: [$InstanceID] MemoryUsageHigh"
+    ALARM_DESC="AWS/RDS: [$InstanceID] Database Freeable Memory < $MemoryThresholdMB MB for 5 minutes"
     if [[ $DEBUGMODE = "1" ]]; then
-        warn_echo aws cloudwatch put-metric-alarm --alarm-name \"${ALARM_NAME}\" --metric-name StatusCheckFailed_System --namespace AWS/EC2 --statistic Maximum --dimensions Name=InstanceId,Value="$InstanceID" --unit Count --period 300 --evaluation-periods 1 --threshold 1 --comparison-operator GreaterThanOrEqualToThreshold --alarm-actions \'"$ALARMACTION"\' --output=json --profile $profile --region $Region
+        warn_echo aws cloudwatch put-metric-alarm --alarm-name \"${ALARM_NAME}\" --alarm-description \"${ALARM_DESC}\" --metric-name "FreeableMemory" --namespace "AWS/RDS" --statistic "Average" --unit "Bytes" --period 60 --threshold "$MemoryThreshold" --comparison-operator "LessThanThreshold" --dimensions Name=DBInstanceIdentifier,Value=$InstanceID --evaluation-periods 5 --alarm-actions \"$ALARMACTION\" --profile $profile --region $Region
     fi
-    SetAlarm=$(aws cloudwatch put-metric-alarm --alarm-name "${ALARM_NAME}" --metric-name StatusCheckFailed_System --namespace AWS/EC2 --statistic Maximum --dimensions Name=InstanceId,Value="$InstanceID" --unit Count --period 300 --evaluation-periods 1 --threshold 1 --comparison-operator GreaterThanOrEqualToThreshold --alarm-actions "$ALARMACTION" --output=json --profile $profile --region $Region 2>&1)
+    SetAlarm=$(aws cloudwatch put-metric-alarm --alarm-name "${ALARM_NAME}" --alarm-description "${ALARM_DESC}" --metric-name "FreeableMemory" --namespace "AWS/RDS" --statistic "Average" --unit "Bytes" --period 60 --threshold "$MemoryThreshold" --comparison-operator "LessThanThreshold" --dimensions Name=DBInstanceIdentifier,Value=$InstanceID --evaluation-periods 5 --alarm-actions "$ALARMACTION" --profile $profile --region $Region 2>&1)
     if [ ! $? -eq 0 ]; then
         fail "SetAlarm: $SetAlarm"
     fi
@@ -156,38 +160,12 @@ function SetAlarms() {
         HorizontalRule
         echo "Count: $Count"
         echo "Instance: $InstanceID"
-        HorizontalRule
-        echo
-
-        InstanceNameTag=$(aws ec2 describe-tags --filters Name=key,Values=Name Name=resource-id,Values="$InstanceID" --region $Region --output=json --profile $profile 2>&1)
-        if [ ! $? -eq 0 ]; then
-            fail "$InstanceNameTag"
-        fi
-        if [ -z "$InstanceNameTag" ]; then
-            echo "No InstanceName."
-            echo
-        fi
-        if [[ $DEBUGMODE = "1" ]]; then
-            warn_echo "InstanceNameTag: $InstanceNameTag"
-            echo
-        fi
-        InstanceName=$(echo "$InstanceNameTag" | jq '.Tags | .[] | .Value' | cut -d \" -f2)
-        if [ ! $? -eq 0 ]; then
-            fail "$InstanceName"
-        fi
-        if [ -z "$InstanceName" ]; then
-            echo "No InstanceName."
-            echo
-        fi
-
-        HorizontalRule
-        echo "Instance Name: $InstanceName ($InstanceID)"
         read -r -p "Set Alarm? (y/n): " SetAlarmYN
         HorizontalRule
         echo
 
         if [[ ${SetAlarmYN} != "y" ]]; then
-            echo "Skip Instance: $InstanceName $InstanceID"
+            echo "Skip Instance: $InstanceID"
             echo
             continue
         fi
@@ -198,8 +176,8 @@ function SetAlarms() {
             SetAlarmCPUHigh
             verify_alarm $profile $Region "$ALARM_NAME"
         fi
-        if [[ "$AlermType" == "all" ]] || [[ "$AlermType" == "StatusCheckFailed" ]]; then
-            SetAlarmStatusCheckFailed
+        if [[ "$AlermType" == "all" ]] || [[ "$AlermType" == "MemoryUsageHigh" ]]; then
+            SetAlarmMemoryUsageHigh
             verify_alarm $profile $Region "$ALARM_NAME"
         fi
 
