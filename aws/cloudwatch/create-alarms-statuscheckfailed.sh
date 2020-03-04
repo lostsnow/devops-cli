@@ -41,7 +41,11 @@ usage() {
 
 OPTS=`getopt -o hp:d --long help -n $( basename $0 ) -- "$@"`
 
-if [ $? != 0 ] ; then echo "Failed parsing options." >&2 ; exit 1 ; fi
+if [ $? != 0 ]; then
+    fail_echo "Failed parsing options." >&2;
+    usage
+    exit 1;
+fi
 
 eval set -- "$OPTS"
 

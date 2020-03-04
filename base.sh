@@ -42,6 +42,12 @@ function fail() {
     exit 1
 }
 
+# Fail echo
+function fail_echo() {
+    tput setaf 1
+    echo "Failure: $*" && tput sgr0
+}
+
 # Horizontal Rule
 function HorizontalRule() {
     echo "============================================================"
