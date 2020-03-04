@@ -25,7 +25,7 @@ SetAlarmYN="n"
 ALARM_NAME=""
 
 profile=default
-AlermType=all
+AlarmType=all
 
 # Check required commands
 check_command "aws"
@@ -70,16 +70,16 @@ while true; do
         shift 2
         ;;
     -t)
-        AlermType=$2
-        if [[ ! "$AlermType" =~ ^(all|CPUHigh|MemoryUsageHigh)$ ]]; then
-            fail_echo "AlermType $AlermType invalid"
+        AlarmType="$2"
+        if [[ ! "$AlarmType" =~ ^(all|CPUHigh|MemoryUsageHigh)$ ]]; then
+            fail_echo "AlarmType $AlarmType invalid"
             usage
         fi
         shift 2
         ;;
     -d)
         DEBUGMODE="1"
-        shift 2
+        shift 1
         ;;
     --)
         shift
@@ -120,9 +120,9 @@ function SetAlarmCPUHigh() {
     ALARM_DESC="AWS/RDS: [$InstanceID] CPU usage >$CPUHighThreshold% for 5 minutes"
 
     if [[ $DEBUGMODE = "1" ]]; then
-        warn_echo aws cloudwatch put-metric-alarm --alarm-name \"${ALARM_NAME}\" --alarm-description \"${ALARM_DESC}\" --namespace "AWS/RDS" --dimensions Name=DBInstanceIdentifier,Value=$InstanceID --metric-name "CPUUtilization" --statistic "Average" --unit "Percent" --period 60 --threshold $CPUHighThreshold --comparison-operator "GreaterThanThreshold" --evaluation-periods 5 --alarm-actions \"$ALARMACTION\" --profile $profile --region $Region
+        warn_echo aws cloudwatch put-metric-alarm --alarm-name \"${ALARM_NAME}\" --alarm-description \"${ALARM_DESC}\" --namespace "AWS/RDS" --dimensions Name=DBInstanceIdentifier,Value=$InstanceID --metric-name "CPUUtilization" --statistic "Average" --unit "Percent" --period 60 --threshold $CPUHighThreshold --comparison-operator "GreaterThanThreshold" --evaluation-periods 5 --alarm-actions \"$ALARMACTION\" --output=json --profile $profile --region $Region
     fi
-    SetAlarm=$(aws cloudwatch put-metric-alarm --alarm-name "${ALARM_NAME}" --alarm-description "${ALARM_DESC}" --namespace "AWS/RDS" --dimensions Name=DBInstanceIdentifier,Value=$InstanceID --metric-name "CPUUtilization" --statistic "Average" --unit "Percent" --period 60 --threshold $CPUHighThreshold --comparison-operator "GreaterThanThreshold" --evaluation-periods 5 --alarm-actions "$ALARMACTION" --profile $profile --region $Region 2>&1)
+    SetAlarm=$(aws cloudwatch put-metric-alarm --alarm-name "${ALARM_NAME}" --alarm-description "${ALARM_DESC}" --namespace "AWS/RDS" --dimensions Name=DBInstanceIdentifier,Value=$InstanceID --metric-name "CPUUtilization" --statistic "Average" --unit "Percent" --period 60 --threshold $CPUHighThreshold --comparison-operator "GreaterThanThreshold" --evaluation-periods 5 --alarm-actions "$ALARMACTION" --output=json --profile $profile --region $Region 2>&1)
     if [ ! $? -eq 0 ]; then
         fail "SetAlarm: $SetAlarm"
     fi
@@ -135,9 +135,9 @@ function SetAlarmMemoryUsageHigh() {
     ALARM_NAME="AWS/RDS: [$InstanceID] MemoryUsageHigh"
     ALARM_DESC="AWS/RDS: [$InstanceID] Database Freeable Memory < $MemoryThresholdMB MB for 5 minutes"
     if [[ $DEBUGMODE = "1" ]]; then
-        warn_echo aws cloudwatch put-metric-alarm --alarm-name \"${ALARM_NAME}\" --alarm-description \"${ALARM_DESC}\" --metric-name "FreeableMemory" --namespace "AWS/RDS" --statistic "Average" --unit "Bytes" --period 60 --threshold "$MemoryThreshold" --comparison-operator "LessThanThreshold" --dimensions Name=DBInstanceIdentifier,Value=$InstanceID --evaluation-periods 5 --alarm-actions \"$ALARMACTION\" --profile $profile --region $Region
+        warn_echo aws cloudwatch put-metric-alarm --alarm-name \"${ALARM_NAME}\" --alarm-description \"${ALARM_DESC}\" --metric-name "FreeableMemory" --namespace "AWS/RDS" --statistic "Average" --unit "Bytes" --period 60 --threshold "$MemoryThreshold" --comparison-operator "LessThanThreshold" --dimensions Name=DBInstanceIdentifier,Value=$InstanceID --evaluation-periods 5 --alarm-actions \"$ALARMACTION\" --output=json --profile $profile --region $Region
     fi
-    SetAlarm=$(aws cloudwatch put-metric-alarm --alarm-name "${ALARM_NAME}" --alarm-description "${ALARM_DESC}" --metric-name "FreeableMemory" --namespace "AWS/RDS" --statistic "Average" --unit "Bytes" --period 60 --threshold "$MemoryThreshold" --comparison-operator "LessThanThreshold" --dimensions Name=DBInstanceIdentifier,Value=$InstanceID --evaluation-periods 5 --alarm-actions "$ALARMACTION" --profile $profile --region $Region 2>&1)
+    SetAlarm=$(aws cloudwatch put-metric-alarm --alarm-name "${ALARM_NAME}" --alarm-description "${ALARM_DESC}" --metric-name "FreeableMemory" --namespace "AWS/RDS" --statistic "Average" --unit "Bytes" --period 60 --threshold "$MemoryThreshold" --comparison-operator "LessThanThreshold" --dimensions Name=DBInstanceIdentifier,Value=$InstanceID --evaluation-periods 5 --alarm-actions "$ALARMACTION" --output=json --profile $profile --region $Region 2>&1)
     if [ ! $? -eq 0 ]; then
         fail "SetAlarm: $SetAlarm"
     fi
@@ -172,11 +172,11 @@ function SetAlarms() {
 
         echo "Setting CloudWatch Alarm"
 
-        if [[ "$AlermType" == "all" ]] || [[ "$AlermType" == "CPUHigh" ]]; then
+        if [[ "$AlarmType" == "all" ]] || [[ "$AlarmType" == "CPUHigh" ]]; then
             SetAlarmCPUHigh
             verify_alarm $profile $Region "$ALARM_NAME"
         fi
-        if [[ "$AlermType" == "all" ]] || [[ "$AlermType" == "MemoryUsageHigh" ]]; then
+        if [[ "$AlarmType" == "all" ]] || [[ "$AlarmType" == "MemoryUsageHigh" ]]; then
             SetAlarmMemoryUsageHigh
             verify_alarm $profile $Region "$ALARM_NAME"
         fi
