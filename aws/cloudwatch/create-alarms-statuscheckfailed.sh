@@ -12,7 +12,6 @@
 # Optionally limit to a single AWS Region
 Region=""
 
-
 # Debug Mode
 DEBUGMODE="1"
 
@@ -21,86 +20,87 @@ SetAlarmYN="n"
 # Functions
 
 # Check Command
-function check_command {
-	type -P $1 &>/dev/null || fail "Unable to find $1, please install it and run this script again."
+function check_command() {
+    type -P $1 &>/dev/null || fail "Unable to find $1, please install it and run this script again."
 }
 
 # Completed
-function completed(){
-	echo
-	HorizontalRule
-	tput setaf 2; echo "Completed!" && tput sgr0
-	HorizontalRule
-	echo
+function completed() {
+    echo
+    HorizontalRule
+    tput setaf 2
+    echo "Completed!" && tput sgr0
+    HorizontalRule
+    echo
 }
 
 # Fail
-function fail(){
-	tput setaf 1; echo "Failure: $*" && tput sgr0
-	exit 1
+function fail() {
+    tput setaf 1
+    echo "Failure: $*" && tput sgr0
+    exit 1
 }
 
 # Horizontal Rule
-function HorizontalRule(){
-	echo "============================================================"
+function HorizontalRule() {
+    echo "============================================================"
 }
 
 # Pause
-function pause(){
-	read -n 1 -s -p "Press any key to continue..."
-	echo
+function pause() {
+    read -n 1 -s -p "Press any key to continue..."
+    echo
 }
 
 # Verify AWS CLI Credentials are setup
 # http://docs.aws.amazon.com/cli/latest/userguide/cli-chap-getting-started.html
 if ! grep -q aws_access_key_id ~/.aws/config; then
-	if ! grep -q aws_access_key_id ~/.aws/credentials; then
-		fail "AWS config not found or CLI not installed. Please run \"aws configure\"."
-	fi
+    if ! grep -q aws_access_key_id ~/.aws/credentials; then
+        fail "AWS config not found or CLI not installed. Please run \"aws configure\"."
+    fi
 fi
 
 # Check for AWS CLI profile argument passed into the script
 # http://docs.aws.amazon.com/cli/latest/userguide/cli-chap-getting-started.html#cli-multiple-profiles
 if [ $# -eq 0 ]; then
-	scriptname=`basename "$0"`
-	echo "Usage: ./$scriptname profile"
-	echo "Where profile is the AWS CLI profile name"
-	echo "Using default profile"
-	echo
-	profile=default
+    scriptname=$(basename "$0")
+    echo "Usage: ./$scriptname profile"
+    echo "Where profile is the AWS CLI profile name"
+    echo "Using default profile"
+    echo
+    profile=default
 else
-	profile=$1
+    profile=$1
 fi
 
 # Check required commands
 check_command "aws"
 check_command "jq"
 
-
 # Get SNS topics
-function GetTopics(){
-	# Verify ALARMACTION is setup with some alert mechanism
-	if [[ -z $ALARMACTION ]] || [[ "$ALARMACTION" == "arn:aws:sns:us-east-1:YOURACCOUNTNUMBER:YOURSNSALERTNAME" ]]; then
-		SNSTopics=$(aws sns list-topics --profile $profile --region $Region 2>&1)
-		if [ ! $? -eq 0 ]; then
-			fail "$SNSTopics"
-		fi
-		TopicArns=$(echo "$SNSTopics" | jq '.Topics | .[] | .TopicArn' | cut -d \" -f2)
-		if [ ! $? -eq 0 ]; then
-			fail "$TopicArns"
-		fi
-		echo "Specify Action for CloudWatch Alarm"
-		echo "SNS Topics Found:"
-		HorizontalRule
-		echo "$TopicArns"
-		HorizontalRule
-		echo
-		read -r -p "ARN: " ALARMACTION
-		if [[ -z $ALARMACTION ]]; then
-			fail "Alarm Action must be configured."
-		fi
-		echo
-	fi
+function GetTopics() {
+    # Verify ALARMACTION is setup with some alert mechanism
+    if [[ -z $ALARMACTION ]] || [[ "$ALARMACTION" == "arn:aws:sns:us-east-1:YOURACCOUNTNUMBER:YOURSNSALERTNAME" ]]; then
+        SNSTopics=$(aws sns list-topics --profile $profile --region $Region 2>&1)
+        if [ ! $? -eq 0 ]; then
+            fail "$SNSTopics"
+        fi
+        TopicArns=$(echo "$SNSTopics" | jq '.Topics | .[] | .TopicArn' | cut -d \" -f2)
+        if [ ! $? -eq 0 ]; then
+            fail "$TopicArns"
+        fi
+        echo "Specify Action for CloudWatch Alarm"
+        echo "SNS Topics Found:"
+        HorizontalRule
+        echo "$TopicArns"
+        HorizontalRule
+        echo
+        read -r -p "ARN: " ALARMACTION
+        if [[ -z $ALARMACTION ]]; then
+            fail "Alarm Action must be configured."
+        fi
+        echo
+    fi
 }
 
 # if [[ "$Region" == "x" ]]; then
@@ -111,34 +111,34 @@ function GetTopics(){
 # 	echo
 # fi
 
-
 # Get list of all regions (using EC2)
-function GetRegions(){
-	if [[ $DEBUGMODE = "1" ]]; then
-		echo "Begin GetRegions Function"
-	fi
-	AWSregions=$(aws ec2 describe-regions --output=json --profile $profile 2>&1)
-	if echo "$AWSregions" | egrep -iq "error|not "; then
-		fail "$AWSregions"
-	else
-		ParseRegions=$(echo "$AWSregions" | jq '.Regions | .[] | .RegionName'| cut -d \" -f2 | sort)
-	fi
-	TotalRegions=$(echo "$ParseRegions" | wc -l | rev | cut -d " " -f1 | rev)
-	echo "Regions:"
-	# echo "$AWSregions"
-	HorizontalRule
-	echo "$ParseRegions"
-	HorizontalRule
-	echo "TotalRegions: $TotalRegions"
-	echo
-	read -r -p "Region: " Region
-	if [[ -z $Region ]]; then
-		fail "Region must be configured."
-	fi
-	echo
-	GetTopics
-	ListInstances
-	echo
+function GetRegions() {
+    if [[ $DEBUGMODE = "1" ]]; then
+        echo "Begin GetRegions Function"
+    fi
+    AWSregions=$(aws ec2 describe-regions --output=json --profile $profile 2>&1)
+
+    if [ ! $? -eq 0 ]; then
+        fail "$AWSregions"
+    else
+        ParseRegions=$(echo "$AWSregions" | jq '.Regions | .[] | .RegionName' | cut -d \" -f2 | sort)
+    fi
+    TotalRegions=$(echo "$ParseRegions" | wc -l | rev | cut -d " " -f1 | rev)
+    echo "Regions:"
+    # echo "$AWSregions"
+    HorizontalRule
+    echo "$ParseRegions"
+    HorizontalRule
+    echo "TotalRegions: $TotalRegions"
+    echo
+    read -r -p "Region: " Region
+    if [[ -z $Region ]]; then
+        fail "Region must be configured."
+    fi
+    echo
+    GetTopics
+    ListInstances
+    echo
 }
 
 # # Get list of all EC2 Instance IDs in all regions
@@ -160,108 +160,107 @@ function GetRegions(){
 # }
 
 # Get list of all EC2 Instances in one region
-function ListInstances(){
-	if [[ $DEBUGMODE = "1" ]]; then
-		echo "Begin ListInstances Function"
-	fi
-	Instances=$(aws ec2 describe-instances --filters Name=instance-state-name,Values=running --region $Region --output=json --profile $profile 2>&1)
-	if [ ! $? -eq 0 ]; then
-		fail "$Instances"
-	else
-		# if [[ $DEBUGMODE = "1" ]]; then
-			# echo Instances: "$Instances"
-		# fi
-		ParseInstances=$(echo "$Instances" | jq '.Reservations | .[] | .Instances | .[] | .InstanceId' | cut -d \" -f2)
-		echo ParseInstances:
-		HorizontalRule
-		echo "$ParseInstances"
-		HorizontalRule
-	fi
-	if [ -z "$ParseInstances" ]; then
-		echo "No Instances found in $Region."
-	else
-		echo "Setting Alarms for Region: $Region"
-		echo
-		SetAlarms
-	fi
+function ListInstances() {
+    if [[ $DEBUGMODE = "1" ]]; then
+        echo "Begin ListInstances Function"
+    fi
+    Instances=$(aws ec2 describe-instances --filters Name=instance-state-name,Values=running --region $Region --output=json --profile $profile 2>&1)
+    if [ ! $? -eq 0 ]; then
+        fail "$Instances"
+    else
+        # if [[ $DEBUGMODE = "1" ]]; then
+        # echo Instances: "$Instances"
+        # fi
+        ParseInstances=$(echo "$Instances" | jq '.Reservations | .[] | .Instances | .[] | .InstanceId' | cut -d \" -f2)
+        echo ParseInstances:
+        HorizontalRule
+        echo "$ParseInstances"
+        HorizontalRule
+    fi
+    if [ -z "$ParseInstances" ]; then
+        echo "No Instances found in $Region."
+    else
+        echo "Setting Alarms for Region: $Region"
+        echo
+        SetAlarms
+    fi
 }
 
-function SetAlarms(){
-	if [[ $DEBUGMODE = "1" ]]; then
-		echo "Begin SetAlarms Function"
-	fi
-	TotalInstancess=$(echo "$ParseInstances" | wc -l | rev | cut -d " " -f1 | rev)
-	if [[ $DEBUGMODE = "1" ]]; then
-		echo "Region: $Region"
-		echo "TotalInstancess: $TotalInstancess"
-		pause
-	fi
-	Start=1
-	for (( Count=$Start; Count<=$TotalInstancess; Count++ ))
-	do
-		InstanceID=$(echo "$ParseInstances" | nl | grep -w [^0-9][[:space:]]$Count | cut -f2)
-		if [[ $DEBUGMODE = "1" ]]; then
-			echo "Count: $Count"
-			echo "Instance: $InstanceID"
-			# pause
-		fi
-		InstanceNameTag=$(aws ec2 describe-tags --filters Name=key,Values=Name Name=resource-id,Values="$InstanceID" --region $Region --output=json --profile $profile 2>&1)
-		if [ ! $? -eq 0 ]; then
-			fail "$InstanceNameTag"
-		fi
-		if [ -z "$InstanceNameTag" ]; then
-			echo "No InstanceName."
-		fi
-		if [[ $DEBUGMODE = "1" ]]; then
-			echo "InstanceNameTag: $InstanceNameTag"
-		fi
-		InstanceName=$(echo "$InstanceNameTag" | jq '.Tags | .[] | .Value' | cut -d \" -f2)
-		if [ ! $? -eq 0 ]; then
-			fail "$InstanceName"
-		fi
-		if [ -z "$InstanceName" ]; then
-			echo "No InstanceName."
-		fi
-		echo
-		HorizontalRule
-		echo "Instance Name: $InstanceName"
-		read -r -p "Set Alarm? (y/n): " SetAlarmYN
-		HorizontalRule
-		echo
+function SetAlarms() {
+    if [[ $DEBUGMODE = "1" ]]; then
+        echo "Begin SetAlarms Function"
+    fi
+    TotalInstancess=$(echo "$ParseInstances" | wc -l | rev | cut -d " " -f1 | rev)
+    if [[ $DEBUGMODE = "1" ]]; then
+        echo "Region: $Region"
+        echo "TotalInstancess: $TotalInstancess"
+        pause
+    fi
+    Start=1
+    for ((Count = $Start; Count <= $TotalInstancess; Count++)); do
+        InstanceID=$(echo "$ParseInstances" | nl | grep -w [^0-9][[:space:]]$Count | cut -f2)
+        if [[ $DEBUGMODE = "1" ]]; then
+            echo "Count: $Count"
+            echo "Instance: $InstanceID"
+            # pause
+        fi
+        InstanceNameTag=$(aws ec2 describe-tags --filters Name=key,Values=Name Name=resource-id,Values="$InstanceID" --region $Region --output=json --profile $profile 2>&1)
+        if [ ! $? -eq 0 ]; then
+            fail "$InstanceNameTag"
+        fi
+        if [ -z "$InstanceNameTag" ]; then
+            echo "No InstanceName."
+        fi
+        if [[ $DEBUGMODE = "1" ]]; then
+            echo "InstanceNameTag: $InstanceNameTag"
+        fi
+        InstanceName=$(echo "$InstanceNameTag" | jq '.Tags | .[] | .Value' | cut -d \" -f2)
+        if [ ! $? -eq 0 ]; then
+            fail "$InstanceName"
+        fi
+        if [ -z "$InstanceName" ]; then
+            echo "No InstanceName."
+        fi
+        echo
+        HorizontalRule
+        echo "Instance Name: $InstanceName"
+        read -r -p "Set Alarm? (y/n): " SetAlarmYN
+        HorizontalRule
+        echo
 
-		if [[ ${SetAlarmYN} != "y" ]]; then
-			echo "Skip Instance: $InstanceName $InstanceID"
-			echo
-			continue
-		fi
+        if [[ ${SetAlarmYN} != "y" ]]; then
+            echo "Skip Instance: $InstanceName $InstanceID"
+            echo
+            continue
+        fi
 
-		echo "Setting CloudWatch Alarm"
-		# if [[ $DEBUGMODE = "1" ]]; then
-		# 	echo $ALARMACTION #="arn:aws:automate:$Region:ec2:recover"
-		# fi
-		# ALARMACTION="arn:aws:automate:$Region:ec2:recover"
-		ALARM_NAME="AWS/EC2: [$InstanceName] StatusCheckFailed $InstanceID"
-		if [[ $DEBUGMODE = "1" ]]; then
-			echo aws cloudwatch put-metric-alarm --alarm-name \"${ALARM_NAME}\" --metric-name StatusCheckFailed_System --namespace AWS/EC2 --statistic Maximum --dimensions Name=InstanceId,Value="$InstanceID" --unit Count --period 300 --evaluation-periods 1 --threshold 1 --comparison-operator GreaterThanOrEqualToThreshold --alarm-actions \'"$ALARMACTION"\' --output=json --profile $profile --region $Region 2>&1
-		fi
-		SetAlarm=$(aws cloudwatch put-metric-alarm --alarm-name "${ALARM_NAME}" --metric-name StatusCheckFailed_System --namespace AWS/EC2 --statistic Maximum --dimensions Name=InstanceId,Value="$InstanceID" --unit Count --period 300 --evaluation-periods 1 --threshold 1 --comparison-operator GreaterThanOrEqualToThreshold --alarm-actions "$ALARMACTION" --output=json --profile $profile --region $Region 2>&1)
-		if [ ! $? -eq 0 ]; then
-			fail "SetAlarm: $SetAlarm"
-		fi
-		if [[ $DEBUGMODE = "1" ]]; then
-			echo aws cloudwatch describe-alarms --alarm-names \"${ALARM_NAME}\" --output=json --profile $profile --region $Region 2>&1
-		fi
-		VerifyAlarm=$(aws cloudwatch describe-alarms --alarm-names "${ALARM_NAME}" --output=json --profile $profile --region $Region 2>&1)
-		if [ ! $? -eq 0 ]; then
-			fail "VerifyAlarm: $VerifyAlarm"
-		fi
-		AlarmName=$(echo "$VerifyAlarm" | jq '.MetricAlarms | .[] | .AlarmName')
-		if [ ! $? -eq 0 ]; then
-			fail "AlarmName: $AlarmName"
-		fi
-		echo "Alarm set: $AlarmName"
-		echo
-	done
+        echo "Setting CloudWatch Alarm"
+        # if [[ $DEBUGMODE = "1" ]]; then
+        # 	echo $ALARMACTION #="arn:aws:automate:$Region:ec2:recover"
+        # fi
+        # ALARMACTION="arn:aws:automate:$Region:ec2:recover"
+        ALARM_NAME="AWS/EC2: [$InstanceName] StatusCheckFailed $InstanceID"
+        if [[ $DEBUGMODE = "1" ]]; then
+            echo aws cloudwatch put-metric-alarm --alarm-name \"${ALARM_NAME}\" --metric-name StatusCheckFailed_System --namespace AWS/EC2 --statistic Maximum --dimensions Name=InstanceId,Value="$InstanceID" --unit Count --period 300 --evaluation-periods 1 --threshold 1 --comparison-operator GreaterThanOrEqualToThreshold --alarm-actions \'"$ALARMACTION"\' --output=json --profile $profile --region $Region 2>&1
+        fi
+        SetAlarm=$(aws cloudwatch put-metric-alarm --alarm-name "${ALARM_NAME}" --metric-name StatusCheckFailed_System --namespace AWS/EC2 --statistic Maximum --dimensions Name=InstanceId,Value="$InstanceID" --unit Count --period 300 --evaluation-periods 1 --threshold 1 --comparison-operator GreaterThanOrEqualToThreshold --alarm-actions "$ALARMACTION" --output=json --profile $profile --region $Region 2>&1)
+        if [ ! $? -eq 0 ]; then
+            fail "SetAlarm: $SetAlarm"
+        fi
+        if [[ $DEBUGMODE = "1" ]]; then
+            echo aws cloudwatch describe-alarms --alarm-names \"${ALARM_NAME}\" --output=json --profile $profile --region $Region 2>&1
+        fi
+        VerifyAlarm=$(aws cloudwatch describe-alarms --alarm-names "${ALARM_NAME}" --output=json --profile $profile --region $Region 2>&1)
+        if [ ! $? -eq 0 ]; then
+            fail "VerifyAlarm: $VerifyAlarm"
+        fi
+        AlarmName=$(echo "$VerifyAlarm" | jq '.MetricAlarms | .[] | .AlarmName')
+        if [ ! $? -eq 0 ]; then
+            fail "AlarmName: $AlarmName"
+        fi
+        echo "Alarm set: $AlarmName"
+        echo
+    done
 }
 
 GetRegions
