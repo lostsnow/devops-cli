@@ -20,10 +20,19 @@ aws configure --profile <profile name>
 
 ### CloudWatch
 
-#### [Create Alarms StatusCheckFailed](cloudwatch/create-alarms-statuscheckfailed.sh)
+#### [Create Alarms for EC2](cloudwatch/create-alarms-ec2.sh)
 
-Create CloudWatch StatusCheckFailed Alarms with Recovery Action for all running EC2 Instances in all regions available
+Create CloudWatch Alarms for all running EC2 Instances in all regions available
+
+* CPUHigh
+* StatusCheckFailed
+
+Usage:
+
+```
+./cloudwatch/create-alarms-ec2.sh -h
+```
 
 ```shell
-./cloudwatch/create-alarms-statuscheckfailed.sh -p <profile name>
+./cloudwatch/create-alarms-ec2.sh -p <profile name>
 ```
