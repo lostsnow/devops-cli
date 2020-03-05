@@ -2,7 +2,7 @@
 
 > Use `-h` or `--help` show help message
 
-## [Create SNS Topic](sns/create-topic.sh)
+## [Create SNS Topic](create-topic.sh)
 
 Example:
 
@@ -10,7 +10,7 @@ Example:
 ./create-topic.sh -p <profile name> --name <topic name>
 ```
 
-## [Delete SNS Topic](sns/delete-topic.sh)
+## [Delete SNS Topic](delete-topic.sh)
 
 Example:
 
