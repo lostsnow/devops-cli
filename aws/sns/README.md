@@ -12,6 +12,14 @@ Example:
 ./create-topic.sh -p <profile name> --name <topic name>
 ```
 
+## [List SNS Topics](list-topics.sh)
+
+Example:
+
+```shell
+./list-topic.sh -p <profile name>
+```
+
 ## [Delete SNS Topic](delete-topic.sh)
 
 Example:

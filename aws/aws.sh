@@ -78,7 +78,7 @@ function GetSNSTopicArns() {
 }
 
 # Select SNS topic arn
-function SelectSNSTopicArn() {
+function ListSNSTopicArns() {
     echo "Get SNS Topic Arns"
     TopicArns=$(GetSNSTopicArns $profile $Region)
     if [ ! $? -eq 0 ]; then
@@ -92,6 +92,11 @@ function SelectSNSTopicArn() {
     HorizontalRule
     info_echo "$TopicArns"
     HorizontalRule
+}
+
+# Select SNS topic arn
+function SelectSNSTopicArn() {
+    ListSNSTopicArns
     echo
     read -r -p "ARN: " SNS_TOPIC_ARN
     if [[ -z $SNS_TOPIC_ARN ]]; then
