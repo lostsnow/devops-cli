@@ -1,5 +1,7 @@
 # AWS CloudWatch
 
+[Requirements & Config](../)
+
 > Use `-h` or `--help` show help message
 
 ## [Create Alarms for EC2](create-alarms-ec2.sh)

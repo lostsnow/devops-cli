@@ -1,5 +1,7 @@
 # AWS Simple Notification Service
 
+[Requirements & Config](../)
+
 > Use `-h` or `--help` show help message
 
 ## [Create SNS Topic](create-topic.sh)
