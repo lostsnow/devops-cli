@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# This script creates AWS CloudWatch alarms based on standard metrics and user input to setup alarms for each environment
+# This script creates AWS SNS Topics
 # Requires AWS CLI Setup
 
 # Change working directory
@@ -33,6 +33,7 @@ usage() {
     echo -e "Options:"
     echo -e "  -p <profile>             AWS CLI profile name"
     echo -e "  -r <region>              AWS region"
+    echo -e "  -n <topic name>          SNS topic name"
     echo -e "  -h, --help               Show this help message and exit"
     echo
     usage_region

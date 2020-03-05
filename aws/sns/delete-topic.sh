@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# This script creates AWS CloudWatch alarms based on standard metrics and user input to setup alarms for each environment
+# This script delete AWS SNS Topics
 # Requires AWS CLI Setup
 
 # Change working directory
@@ -37,7 +37,7 @@ usage() {
     exit 1
 }
 
-OPTS=$(getopt -o hp:r:n: --long help -n $(basename $0) -- "$@")
+OPTS=$(getopt -o hp:r: --long help -n $(basename $0) -- "$@")
 
 if [ $? != 0 ]; then
     fail_echo "Failed parsing options." >&2
@@ -60,10 +60,6 @@ while true; do
         ;;
     -r)
         Region="$2"
-        shift 2
-        ;;
-    -n)
-        TOPIC_NAME="$2"
         shift 2
         ;;
     --)
