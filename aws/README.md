@@ -18,6 +18,8 @@ aws configure --profile <profile name>
 
 ## Tools
 
+> Use `-h` or `--help` show help message
+
 ### CloudWatch
 
 #### [Create Alarms for EC2](cloudwatch/create-alarms-ec2.sh)
@@ -27,11 +29,7 @@ Create CloudWatch Alarms for all running EC2 Instances in all regions available
 * CPUHigh
 * StatusCheckFailed
 
-Usage:
-
-```
-./cloudwatch/create-alarms-ec2.sh -h
-```
+Example:
 
 ```shell
 ./cloudwatch/create-alarms-ec2.sh -p <profile name>
@@ -44,12 +42,26 @@ Create CloudWatch Alarms for all running RDS Instances in all regions available
 * CPUHigh
 * MemoryUsageHigh
 
-Usage:
-
-```
-./cloudwatch/create-alarms-rds.sh -h
-```
+Example:
 
 ```shell
 ./cloudwatch/create-alarms-rds.sh -p <profile name>
+```
+
+### Simple Notification Service
+
+#### [Create SNS Topic](sns/create-topic.sh)
+
+Example:
+
+```shell
+./sns/create-topic.sh -p <profile name> --name <topic name>
+```
+
+#### [Delete SNS Topic](sns/delete-topic.sh)
+
+Example:
+
+```shell
+./sns/delete-topic.sh -p <profile name>
 ```
