@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # This script creates AWS CloudWatch alarms based on standard metrics and user input to setup alarms for each environment
-# Requires AWS CLI Setup and you must setup your ALARMACTION
+# Requires AWS CLI Setup and you must setup your Alarm SNS_TOPIC_ARN
 
 # Change working directory
 DIR_PATH="$(
@@ -38,9 +38,12 @@ usage() {
     echo
     echo -e "Options:"
     echo -e "  -p <profile>             AWS CLI profile name"
+    echo -e "  -r <region>              AWS region"
     echo -e "  -t <alarm type>          Alarm type, default: all"
     echo -e "  -d                       Debug mode"
     echo -e "  -h, --help               Show this help message and exit"
+    echo
+    usage_region
     echo
     echo -e "Alarm types:"
     echo -e "  StatusCheckFailed"
@@ -49,7 +52,7 @@ usage() {
     exit 1
 }
 
-OPTS=$(getopt -o hp:dt: --long help -n $(basename $0) -- "$@")
+OPTS=$(getopt -o hp:dt:r: --long help -n $(basename $0) -- "$@")
 
 if [ $? != 0 ]; then
     fail_echo "Failed parsing options." >&2
@@ -76,6 +79,10 @@ while true; do
             fail_echo "AlarmType $AlarmType invalid"
             usage
         fi
+        shift 2
+        ;;
+    -r)
+        Region="$2"
         shift 2
         ;;
     -d)
@@ -121,9 +128,9 @@ function SetAlarmCPUHigh() {
     ALARM_DESC="AWS/EC2: [$InstanceName] CPU usage >$CPUHighThreshold% for 5 minutes"
 
     if [[ $DEBUGMODE = "1" ]]; then
-        warn_echo aws cloudwatch put-metric-alarm --alarm-name \"${ALARM_NAME}\" --alarm-description \"${ALARM_DESC}\" --namespace "AWS/EC2" --dimensions Name=InstanceId,Value=$InstanceID --metric-name "CPUUtilization" --statistic "Average" --comparison-operator "GreaterThanThreshold" --unit "Percent" --period 60 --threshold $CPUHighThreshold --evaluation-periods 5 --alarm-actions \"$ALARMACTION\" --output=json --profile $profile --region $Region
+        warn_echo aws cloudwatch put-metric-alarm --alarm-name \"${ALARM_NAME}\" --alarm-description \"${ALARM_DESC}\" --namespace "AWS/EC2" --dimensions Name=InstanceId,Value=$InstanceID --metric-name "CPUUtilization" --statistic "Average" --comparison-operator "GreaterThanThreshold" --unit "Percent" --period 60 --threshold $CPUHighThreshold --evaluation-periods 5 --alarm-actions \"$SNS_TOPIC_ARN\" --output=json --profile $profile --region $Region
     fi
-    SetAlarm=$(aws cloudwatch put-metric-alarm --alarm-name "${ALARM_NAME}" --alarm-description "${ALARM_DESC}" --namespace "AWS/EC2" --dimensions Name=InstanceId,Value=$InstanceID --metric-name "CPUUtilization" --statistic "Average" --comparison-operator "GreaterThanThreshold" --unit "Percent" --period 60 --threshold $CPUHighThreshold --evaluation-periods 5 --alarm-actions "$ALARMACTION" --output=json --profile $profile --region $Region 2>&1)
+    SetAlarm=$(aws cloudwatch put-metric-alarm --alarm-name "${ALARM_NAME}" --alarm-description "${ALARM_DESC}" --namespace "AWS/EC2" --dimensions Name=InstanceId,Value=$InstanceID --metric-name "CPUUtilization" --statistic "Average" --comparison-operator "GreaterThanThreshold" --unit "Percent" --period 60 --threshold $CPUHighThreshold --evaluation-periods 5 --alarm-actions "$SNS_TOPIC_ARN" --output=json --profile $profile --region $Region 2>&1)
     if [ ! $? -eq 0 ]; then
         fail "SetAlarm: $SetAlarm"
     fi
@@ -132,9 +139,9 @@ function SetAlarmCPUHigh() {
 function SetAlarmStatusCheckFailed() {
     ALARM_NAME="AWS/EC2: [$InstanceName] StatusCheckFailed $InstanceID"
     if [[ $DEBUGMODE = "1" ]]; then
-        warn_echo aws cloudwatch put-metric-alarm --alarm-name \"${ALARM_NAME}\" --metric-name StatusCheckFailed_System --namespace AWS/EC2 --statistic Maximum --dimensions Name=InstanceId,Value="$InstanceID" --unit Count --period 300 --evaluation-periods 1 --threshold 1 --comparison-operator GreaterThanOrEqualToThreshold --alarm-actions \'"$ALARMACTION"\' --output=json --profile $profile --region $Region
+        warn_echo aws cloudwatch put-metric-alarm --alarm-name \"${ALARM_NAME}\" --metric-name StatusCheckFailed_System --namespace AWS/EC2 --statistic Maximum --dimensions Name=InstanceId,Value="$InstanceID" --unit Count --period 300 --evaluation-periods 1 --threshold 1 --comparison-operator GreaterThanOrEqualToThreshold --alarm-actions \'"$SNS_TOPIC_ARN"\' --output=json --profile $profile --region $Region
     fi
-    SetAlarm=$(aws cloudwatch put-metric-alarm --alarm-name "${ALARM_NAME}" --metric-name StatusCheckFailed_System --namespace AWS/EC2 --statistic Maximum --dimensions Name=InstanceId,Value="$InstanceID" --unit Count --period 300 --evaluation-periods 1 --threshold 1 --comparison-operator GreaterThanOrEqualToThreshold --alarm-actions "$ALARMACTION" --output=json --profile $profile --region $Region 2>&1)
+    SetAlarm=$(aws cloudwatch put-metric-alarm --alarm-name "${ALARM_NAME}" --metric-name StatusCheckFailed_System --namespace AWS/EC2 --statistic Maximum --dimensions Name=InstanceId,Value="$InstanceID" --unit Count --period 300 --evaluation-periods 1 --threshold 1 --comparison-operator GreaterThanOrEqualToThreshold --alarm-actions "$SNS_TOPIC_ARN" --output=json --profile $profile --region $Region 2>&1)
     if [ ! $? -eq 0 ]; then
         fail "SetAlarm: $SetAlarm"
     fi
@@ -146,9 +153,9 @@ function SetAlarmNetworkOutHigh() {
     ALARM_NAME="AWS/EC2: [$InstanceName] NetworkOutHigh $InstanceID"
     ALARM_DESC="AWS/EC2: [$InstanceName] Network Traffic Out > $NetworkOutHighThresholdMB Mbps for 5 minutes"
     if [[ $DEBUGMODE = "1" ]]; then
-        warn_echo aws cloudwatch put-metric-alarm --alarm-name \"${ALARM_NAME}\" --alarm-description \"${ALARM_DESC}\" --namespace AWS/EC2 --dimensions Name=InstanceId,Value="$InstanceID" --metric-name "NetworkOut" --statistic "Average" --comparison-operator GreaterThanThreshold --unit "Bytes" --period 60 --threshold "$NetworkOutHighThreshold" --evaluation-periods 5 --alarm-actions \"$ALARMACTION\" --output=json --profile $profile --region $Region
+        warn_echo aws cloudwatch put-metric-alarm --alarm-name \"${ALARM_NAME}\" --alarm-description \"${ALARM_DESC}\" --namespace AWS/EC2 --dimensions Name=InstanceId,Value="$InstanceID" --metric-name "NetworkOut" --statistic "Average" --comparison-operator GreaterThanThreshold --unit "Bytes" --period 60 --threshold "$NetworkOutHighThreshold" --evaluation-periods 5 --alarm-actions \"$SNS_TOPIC_ARN\" --output=json --profile $profile --region $Region
     fi
-    SetAlarm=$(aws cloudwatch put-metric-alarm --alarm-name "${ALARM_NAME}" --alarm-description "${ALARM_DESC}" --namespace AWS/EC2 --dimensions Name=InstanceId,Value="$InstanceID" --metric-name "NetworkOut" --statistic "Average" --comparison-operator GreaterThanThreshold --unit "Bytes" --period 60 --threshold "$NetworkOutHighThreshold" --evaluation-periods 5 --alarm-actions "$ALARMACTION" --output=json --profile $profile --region $Region 2>&1)
+    SetAlarm=$(aws cloudwatch put-metric-alarm --alarm-name "${ALARM_NAME}" --alarm-description "${ALARM_DESC}" --namespace AWS/EC2 --dimensions Name=InstanceId,Value="$InstanceID" --metric-name "NetworkOut" --statistic "Average" --comparison-operator GreaterThanThreshold --unit "Bytes" --period 60 --threshold "$NetworkOutHighThreshold" --evaluation-periods 5 --alarm-actions "$SNS_TOPIC_ARN" --output=json --profile $profile --region $Region 2>&1)
     if [ ! $? -eq 0 ]; then
         fail "SetAlarm: $SetAlarm"
     fi
@@ -229,8 +236,11 @@ function SetAlarms() {
 echo "Using $profile profile"
 echo
 
-SelectRegion
-echo
+if [[ -z "$Region" ]]; then
+    SelectRegion
+    echo
+fi
+
 SelectSNSTopicArn
 echo
 ListInstances

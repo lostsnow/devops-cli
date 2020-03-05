@@ -8,6 +8,26 @@ function aws_check_config() {
     fi
 }
 
+function usage_region() {
+    echo -e "Regions:"
+    echo -e "  ap-northeast-1"
+    echo -e "  ap-northeast-2"
+    echo -e "  ap-south-1"
+    echo -e "  ap-southeast-1"
+    echo -e "  ap-southeast-2"
+    echo -e "  ca-central-1"
+    echo -e "  eu-central-1"
+    echo -e "  eu-north-1"
+    echo -e "  eu-west-1"
+    echo -e "  eu-west-2"
+    echo -e "  eu-west-3"
+    echo -e "  sa-east-1"
+    echo -e "  us-east-1"
+    echo -e "  us-east-2"
+    echo -e "  us-west-1"
+    echo -e "  us-west-2"
+}
+
 # Get list of all regions (using EC2)
 function GetEc2Regions() {
     profile=$1
@@ -73,9 +93,9 @@ function SelectSNSTopicArn() {
     info_echo "$TopicArns"
     HorizontalRule
     echo
-    read -r -p "ARN: " ALARMACTION
-    if [[ -z $ALARMACTION ]]; then
-        fail "Alarm Action must be configured."
+    read -r -p "ARN: " SNS_TOPIC_ARN
+    if [[ -z $SNS_TOPIC_ARN ]]; then
+        fail "SNS topic arn must be configured."
     fi
 }
 
